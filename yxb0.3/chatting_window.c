@@ -13,6 +13,7 @@ GtkTextBuffer *bufferuser;
 GtkTextBuffer *buffernotice;
 
 GtkTextBuffer *buffers;
+extern int client_socket;
 //根据button的值发送消息时的自我维护。
 void sendtouser(GtkButton  *button, gpointer entry){
 
@@ -33,6 +34,7 @@ void *strdeal(void *arg){
 
 void chatting_win(int argc, char *argv[]){
     gtk_init(&argc, &argv);	
+	//printf("zzz:%d\n",client_socket);
     // 创建顶层窗口
     chatting_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     // 设置窗口的标题

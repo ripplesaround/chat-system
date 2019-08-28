@@ -53,6 +53,7 @@ int registandlogin(char *username,char *password,Kind kind,char  *c_ipAddr)
     Data data;
     Packet packet;
 	client_socket=init_client(MYPORT,c_ipAddr);
+    //printf("kkk:%d\n",client_socket);
     if(client_socket < 0)
     {
         printf("create socket error\n");
@@ -68,7 +69,7 @@ int registandlogin(char *username,char *password,Kind kind,char  *c_ipAddr)
     write(client_socket, &packet, sizeof(Packet));
     read(client_socket, &packet, sizeof(Packet));
     parse_packet(packet,&kind,&data);
-    printf("kkkk:\n%s\n%s\n",data.userinfo.account,data.userinfo.password);
+    //printf("kkkk:\n%s\n%s\n",data.userinfo.account,data.userinfo.password);
     if(kind==enum_regist&&(!strcmp(data.userinfo.account,"")))  return 1;
     else if(kind==enum_login&&(!strcmp(data.userinfo.account,""))) return 1;
     else return 0;
