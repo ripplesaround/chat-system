@@ -19,3 +19,6 @@ gcc
 ...
 
 ## some goals in the future
+
+## the structure of code
+
