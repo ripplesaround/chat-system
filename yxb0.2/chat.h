@@ -17,12 +17,13 @@
 
 typedef struct _message{
 	int id;	
-	int id_to;				      //消息的标识符
+	char id_to[20];
+	char id_from[20];				      //消息的标识符
 	char str[MAXLEN+1];		//消息正文
 }Message;					      //一条消息的结构体
 typedef struct _user{
 	char account[20];		  //账号
-	char password[80];		//密码
+	char password[20];		//密码
 	int user_id;
 }User;						      //用户登录信息
 typedef union _data{
@@ -30,7 +31,7 @@ typedef union _data{
 	Message message;		  //消息
 }Data;						      //数据包共用体
 typedef enum _kind{
-	enum_regist,enum_login,enum_logout,enum_chat,enum_modify
+	enum_regist,enum_login,enum_logout,enum_chat,enum_modify,enum_friend
 	//注册			    登录 		  登出		      发送消息  修改用户密码
 }Kind;						      //用枚举变量表示包类型
 typedef struct _packet{
