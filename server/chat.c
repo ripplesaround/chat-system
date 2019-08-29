@@ -10,6 +10,9 @@ int build_packet(Packet *packet,Kind kind,...){
 		case enum_logout:
 		case enum_login:packet->data=(Data)va_arg(ap,User);break;	//va_arg 返回当前参数
 		case enum_chat:packet->data=(Data)va_arg(ap,Message);break;
+		case enum_friend:packet->data=(Data)va_arg(ap,Message);break;
+		case enum_history:packet->data=(Data)va_arg(ap,Message);break;
+		case enum_quitchat:
 		default:return -1;
 	}
 	va_end(ap);	//释放指针
