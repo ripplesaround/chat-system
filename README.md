@@ -10,11 +10,13 @@ git clone https://github.com/ripplesaround/chat-system.git
 2. git add .
 3. git commit -m '这里可以写修改了哪些内容'
 4. git push origin master
+### 更新master代码到本地
+git pull origin master
 
 ## code compiling method
 ### for yxb fold
-1.cd yxb.0x
-2.make
+1. cd yxb.0x
+2. make
 
 ### for xzb fold
 ...
