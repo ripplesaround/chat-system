@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "chat.h"
+#include "main_window.h"
 static GtkWidget* entry1;
 static GtkWidget* entry2;
 static GtkWidget* entry3;
@@ -20,6 +21,7 @@ GtkWidget* sep;
 GtkWidget* hbox;
 extern char* str_ip;
 int client_socket;
+
 int init_client(int port,char *addr)
 {
 	int cli_socket;
@@ -47,21 +49,17 @@ int init_client(int port,char *addr)
 int registandlogin(char *username,char *password,Kind kind,char  *c_ipAddr)
 {
     int port =MYPORT;
-    struct sockaddr_in servaddr;
     int MAXLINE = 4096;
     char buf[MAXLINE];
     Data data;
     Packet packet;
 	client_socket=init_client(MYPORT,c_ipAddr);
-    //printf("kkk:%d\n",client_socket);
+    printf("kkk:%d\n",client_socket);
     if(client_socket < 0)
     {
         printf("create socket error\n");
         exit(0);
     }
-    memset(&servaddr, 0, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(port);
 	strcpy(data.userinfo.account,username);
     strcpy(data.userinfo.password,password);
     //printf("%s\n%s",data.userinfo.account,data.userinfo.password);
@@ -148,7 +146,8 @@ void on_button_clicked (GtkWidget* button,gpointer data)
         else
         {
             gtk_widget_hide_all(window1);
-            chatting_win();
+            //chatting_win();
+            main_win((char*)username);
         }
     }
     else if((int)data == 3)
