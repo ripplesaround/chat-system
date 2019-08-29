@@ -16,7 +16,59 @@ GtkTextBuffer *buffers;
 extern int client_socket;
 //根据button的值发送消息时的自我维护。
 void sendtouser(GtkButton  *button, gpointer entry){
+	char str[250];
+	Packet packet;
+	Message message;
 
+	char *buf;	//用来存储内容。
+	buf = (char *)malloc(1024);    //向系统申请分配指定1024个字节的内存空间。
+	memset(buf, 0, 1024);    //将buf中当前位置后面的1024个字节用0替换。
+	int sendbytes;	//用来记录发送的字节数。
+	const gchar  *text = gtk_entry_get_text(GTK_ENTRY(entry));	//获得行编辑entry的内容并静态建立text指针进行指定。
+	const char *but = gtk_button_get_label(button);	//获得获取按钮button文本内容并静态建立but指针进行指定。
+
+	if(strlen(text)==0){	//如果text的长度为0
+		printf("不能为空\n");	//打印内容。
+		return;
+	}else{
+		if(strcmp(but,"--发送--")==0){	//比较but与"--发送--"，若相同返回0；若相同。
+			const gchar  *name = gtk_entry_get_text(GTK_ENTRY(entryname));	//获得行编辑entryname的内容并静态建立name指针进行指定。
+			if(strlen(name)==0){	//如果name的长度为0
+					printf("name为空。\n");	//打印内容。
+					return;
+			}
+			strcpy(message.str,name);
+			strcat(message.str,":");
+			strcat(message.str,text);
+			if(build_packet(&packet,enum_chat,message) == -1){	    //打包类型为enum_chat的包
+				printf("fail to build the packet!\n");
+				return;
+			}
+			//sprintf(buf,"User:%d:%s%s\n",strlen(name),name,text); 	//将内容写入buf。
+			// if ((sendbytes = send(clientfd, buf, strlen(buf), 0)) == -1)	//将buf由指定的socket端口clientfd传给对方主机并将发送的字节数存进sendbytes；如果发送失败。
+			// {
+			// 	perror("fail to send");    //把"fail to send"输出到标准错误stderr。       
+			// }
+			write(client_socket,&packet,sizeof(Packet));
+			return ;		
+		}else{
+			// sprintf(buf,"%s%s\n","All::",text);	//将内容写入buf。
+			// if ((sendbytes = send(clientfd, buf, strlen(buf), 0)) == -1)	//将buf由指定的socket端口clientfd传给对方主机并将发送的字节数存进sendbytes；如果发送失败。
+			// {
+			// 	perror("fail to send");	//把"fail to send"输出到标准错误 stderr。
+			// }
+			strcpy(message.str,name);
+			strcat(message.str,":");
+			strcat(message.str,text);
+			if(build_packet(&packet,enum_chat_together,message) == -1){	    //打包类型为enum_chat的包
+				printf("fail to build the packet!\n");
+				return;
+			}
+			write(client_socket,&packet,sizeof(Packet));
+			return ;
+		}
+		
+	}
 }
 //保存消息记录
 void savetxt(GtkButton  *button, gpointer entry){
