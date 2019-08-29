@@ -13,9 +13,10 @@ git clone https://github.com/ripplesaround/chat-system.git
 
 ## code compiling method
 ### for yxb fold
-gcc 
+1.cd yxb.0x
+2.make
 
-### for socket fold
+### for xzb fold
 ...
 
 ## some goals in the future
