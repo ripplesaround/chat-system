@@ -26,13 +26,13 @@ void sendtouser(GtkButton  *button, gpointer entry){
 	int sendbytes;	//用来记录发送的字节数。
 	const gchar  *text = gtk_entry_get_text(GTK_ENTRY(entry));	//获得行编辑entry的内容并静态建立text指针进行指定。
 	const char *but = gtk_button_get_label(button);	//获得获取按钮button文本内容并静态建立but指针进行指定。
+	const gchar  *name = gtk_entry_get_text(GTK_ENTRY(entryname));	//获得行编辑entryname的内容并静态建立name指针进行指定。
 
 	if(strlen(text)==0){	//如果text的长度为0
 		printf("不能为空\n");	//打印内容。
 		return;
 	}else{
 		if(strcmp(but,"--发送--")==0){	//比较but与"--发送--"，若相同返回0；若相同。
-			const gchar  *name = gtk_entry_get_text(GTK_ENTRY(entryname));	//获得行编辑entryname的内容并静态建立name指针进行指定。
 			if(strlen(name)==0){	//如果name的长度为0
 					printf("name为空。\n");	//打印内容。
 					return;
@@ -57,6 +57,7 @@ void sendtouser(GtkButton  *button, gpointer entry){
 			// {
 			// 	perror("fail to send");	//把"fail to send"输出到标准错误 stderr。
 			// }
+			
 			strcpy(message.str,name);
 			strcat(message.str,":");
 			strcat(message.str,text);
