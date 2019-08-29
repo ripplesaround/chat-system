@@ -1,6 +1,7 @@
 #include <gtk/gtk.h>	// 头文件
 #include <string.h>
 #include <stdio.h>
+#include <pthread.h>
 #include "chat.h"
 static GtkWidget* entry1;
 GtkWidget* window;
@@ -15,43 +16,72 @@ GtkWidget* sep;
 extern int client_socket;
 //int client_socket;
 char *username="fwx";
+void pop_friend(GtkWindow *parent,int flag)
+{
+    GtkWidget *dialog;
+    GtkWidget *label;
+    GtkWidget *image;
+    GtkWidget *hbox;
+    if(flag==1)
+    {
+        dialog = gtk_dialog_new_with_buttons("error",parent,GTK_DIALOG_MODAL,GTK_STOCK_OK,GTK_RESPONSE_OK,NULL);
+        label = gtk_label_new("该人不存在");
+    }
+    else if(flag==0)
+    {
+        dialog = gtk_dialog_new_with_buttons("Lintop",parent,GTK_DIALOG_MODAL,GTK_STOCK_OK,GTK_RESPONSE_OK,NULL);
+        label = gtk_label_new("好友请求已发送");
+    }
+    else if(flag==2)
+    {
+        dialog = gtk_dialog_new_with_buttons("error",parent,GTK_DIALOG_MODAL,GTK_STOCK_OK,GTK_RESPONSE_OK,NULL);
+        label = gtk_label_new("不能添加自己");
+    }
+    gtk_dialog_set_has_separator(GTK_DIALOG(dialog),FALSE);
+    hbox = gtk_hbox_new(FALSE,5);
+    gtk_container_set_border_width(GTK_CONTAINER(hbox),10);
+    gtk_box_pack_start_defaults(GTK_BOX(hbox),label);
+    gtk_box_pack_start_defaults(GTK_BOX(GTK_DIALOG(dialog)->vbox),hbox);
+    gtk_widget_show_all(dialog);
+    gtk_dialog_run(GTK_DIALOG(dialog));
+    gtk_widget_destroy(dialog);
+}
 void search(char *to_username)
 {
     //printf("%s\n%s\n",to_username,username);
     Kind kind=enum_friend;
     Data data;
     Packet packet;
-
-   /* struct sockaddr_in server_addr;
-	int port = 4567;
-	client_socket=socket(AF_INET,SOCK_STREAM,0);	//创建客户端套接字
-
-	server_addr.sin_addr.s_addr=inet_addr("127.0.0.1");
-	server_addr.sin_port=htons(port);
-	server_addr.sin_family=AF_INET;
-    connect(client_socket,(struct sockaddr*)&server_addr,sizeof(server_addr));*/
-    printf("client:%d\n",client_socket);
     strcpy(data.message.id_from,username);
     strcpy(data.message.id_to,to_username);
-    printf("%s\n%s\n",data.message.id_from,data.message.id_to);
     build_packet(&packet,kind,data);
     write(client_socket, &packet, sizeof(Packet));
-    //read(client_socket, &packet, sizeof(Packet));
-    //parse_packet(packet,&kind,&data);
+    read(client_socket, &packet, sizeof(Packet));
+    read(client_socket, &packet, sizeof(Packet));
+    parse_packet(packet,&kind,&data);
+    if(!strcmp(data.message.id_to,data.message.id_from)) pop_friend(window,2);
+    if(kind==enum_friend&&(!strcmp(data.message.str,"1"))) pop_friend(window,1);
+    else pop_friend(window,0);
 }
 void on_button_clicked_search(GtkWidget* button,gpointer data)
 {
-    if((int)data==0)
-    {
-        gchar* searchid = gtk_entry_get_text(GTK_ENTRY(entry1));
-        search((char*)searchid);
-    }
+    gchar* searchid = gtk_entry_get_text(GTK_ENTRY(entry1));
+    search((char*)searchid);
 }
 void on_button_clicked_chat_together(GtkWidget* button,gpointer data)
 {
     chatting_win();
 }
-
+void destroy_logout()
+{
+    Kind kind=enum_logout;
+    Data data;
+    Packet packet;
+    strcpy(data.userinfo.account,username);
+    build_packet(&packet,kind,data);
+    write(client_socket, &packet, sizeof(Packet));
+    gtk_main_quit();
+}
 void main_win(char *user)
 {
     //gtk_init(&argc,&argv);
@@ -89,9 +119,9 @@ void main_win(char *user)
     button_forsearch = gtk_button_new_with_label("  搜索  ");
     button_forchat_together = gtk_button_new_with_label("  群聊  ");
 
-    g_signal_connect(G_OBJECT(button_forsearch),"clicked",G_CALLBACK(on_button_clicked_search),(gpointer)0);
-    g_signal_connect(G_OBJECT(button_forchat_together),"clicked",G_CALLBACK(on_button_clicked_chat_together),(gpointer)0);
-    //g_signal_connect_swapped(G_OBJECT(button),"clicked",G_CALLBACK(gtk_widget_destroy),window);
+    g_signal_connect(G_OBJECT(button_forsearch),"clicked",G_CALLBACK(on_button_clicked_search),NULL);
+    g_signal_connect(G_OBJECT(button_forchat_together),"clicked",G_CALLBACK(on_button_clicked_chat_together),NULL);
+    g_signal_connect(G_OBJECT(window),"destroy",G_CALLBACK(destroy_logout),NULL);
     gtk_box_pack_start(GTK_BOX(box2),button_forsearch,FALSE,FALSE,10);
     gtk_box_pack_start(GTK_BOX(box3),button_forchat_together,TRUE,TRUE,10);
     gtk_widget_show(button_forsearch);

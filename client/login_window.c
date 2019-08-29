@@ -138,9 +138,6 @@ void on_button_clicked (GtkWidget* button,gpointer data)
         //strcpy(pass,password);
         //pass=sha((char*)password);
         flag=registandlogin((char*)username,(char*)password,enum_login,str_ip);
-        g_print("用户名是：%s",username);
-        g_print("\n");
-        g_print("密码是：%s\n",password);
         //g_print("密码是：%s\n",pass);
         if(flag) error_pop_login(window1);
         else
@@ -164,8 +161,6 @@ void on_button_clicked (GtkWidget* button,gpointer data)
             //pass=sha((char*)password);
             flag=registandlogin((char*)username,(char*)password,enum_regist,str_ip);
             printf("%d\n",flag);
-            g_print("用户名是：%s\n",username);
-            g_print("密码是：%s\n",password);
             if(flag) error_pop_resiger(window);
             else gtk_widget_hide_all(window);
         }
