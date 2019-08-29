@@ -7,8 +7,10 @@ GtkWidget* window;
 GtkWidget* box;
 GtkWidget* box1;
 GtkWidget* box2;
+GtkWidget* box3;
 GtkWidget* label1;
-GtkWidget* button;
+GtkWidget* button_forsearch;//
+GtkWidget* button_forchat_together;//
 GtkWidget* sep;
 extern int client_socket;
 //int client_socket;
@@ -45,6 +47,11 @@ void on_button_clicked_search(GtkWidget* button,gpointer data)
         search((char*)searchid);
     }
 }
+void on_button_clicked_chat_together(GtkWidget* button,gpointer data)
+{
+    chatting_win();
+}
+
 void main_win(char *user)
 {
     //gtk_init(&argc,&argv);
@@ -68,6 +75,9 @@ void main_win(char *user)
     box2 = gtk_hbox_new(FALSE,24);
     gtk_box_pack_start(GTK_BOX(box),box2,FALSE,FALSE,15);
 
+    box3 = gtk_hbox_new(FALSE,24);
+    gtk_box_pack_start(GTK_BOX(box),box3,FALSE,FALSE,15);
+
     label1 = gtk_label_new(username);
     gtk_box_pack_start(GTK_BOX(box1),label1,FALSE,FALSE,60);
 
@@ -76,12 +86,16 @@ void main_win(char *user)
 
     entry1 = gtk_entry_new();
     gtk_box_pack_start(GTK_BOX(box2),entry1,TRUE,TRUE,20);
-    button = gtk_button_new_with_label("  搜索  ");
-    g_signal_connect(G_OBJECT(button),"clicked",G_CALLBACK(on_button_clicked_search),(gpointer)0);
-    //g_signal_connect_swapped(G_OBJECT(button),"clicked",G_CALLBACK(gtk_widget_destroy),window);
-    gtk_box_pack_start(GTK_BOX(box2),button,FALSE,FALSE,10);
-    gtk_widget_show(button);
+    button_forsearch = gtk_button_new_with_label("  搜索  ");
+    button_forchat_together = gtk_button_new_with_label("  群聊  ");
 
+    g_signal_connect(G_OBJECT(button_forsearch),"clicked",G_CALLBACK(on_button_clicked_search),(gpointer)0);
+    g_signal_connect(G_OBJECT(button_forchat_together),"clicked",G_CALLBACK(on_button_clicked_chat_together),(gpointer)0);
+    //g_signal_connect_swapped(G_OBJECT(button),"clicked",G_CALLBACK(gtk_widget_destroy),window);
+    gtk_box_pack_start(GTK_BOX(box2),button_forsearch,FALSE,FALSE,10);
+    gtk_box_pack_start(GTK_BOX(box3),button_forchat_together,TRUE,TRUE,10);
+    gtk_widget_show(button_forsearch);
+    gtk_widget_show(button_forchat_together);
     gtk_widget_show_all(window);
     gtk_main();
 }

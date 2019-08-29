@@ -31,8 +31,8 @@ typedef union _data{
 	Message message;		  //消息
 }Data;						      //数据包共用体
 typedef enum _kind{
-	enum_regist,enum_login,enum_logout,enum_chat,enum_modify,enum_friend
-	//注册			    登录 		  登出		      发送消息  修改用户密码
+	enum_regist,enum_login,enum_logout,enum_chat,enum_modify,enum_friend,enum_chat_together
+	//注册		登录 		 登出		 发送消息    修改用户密码
 }Kind;						      //用枚举变量表示包类型
 typedef struct _packet{
 	Kind kind;		        //包类型
