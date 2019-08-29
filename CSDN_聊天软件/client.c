@@ -11,7 +11,7 @@
 #include<sys/sem.h>
 #include <unistd.h>
 #include <pthread.h> 
-#include <uuid/uuid.h>
+//#include <uuid/uuid.h>
 GtkWidget *window;   //登录窗口
 GtkWidget *home;	//主窗口
 int clientfd,b_file;

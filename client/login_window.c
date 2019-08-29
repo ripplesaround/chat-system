@@ -54,6 +54,7 @@ int registandlogin(char *username,char *password,Kind kind,char  *c_ipAddr)
     Data data;
     Packet packet;
 	client_socket=init_client(MYPORT,c_ipAddr);
+    printf("%d\n",client_socket);
     printf("kkk:%d\n",client_socket);
     if(client_socket < 0)
     {

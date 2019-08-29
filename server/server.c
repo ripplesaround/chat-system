@@ -795,6 +795,7 @@ int main(){
     while(1)
     {
         client_socket=accept(server_socket,NULL,NULL);	//接收连接请求
+        printf("%d\n",client_socket);
         if(client_socket != -1)
         {
             len=sizeof(client_addr);
