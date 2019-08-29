@@ -11,7 +11,7 @@
 #include <time.h>
 
 #define MAXMSG 500			  //最大消息数
-#define MAXUSER 500 		  //用户最大数量
+#define MAXUSER 20 		      //用户最大数量
 #define RW 0 				  //读写进程对共享内存区的信号量 初始值：1
 #define MUTEX 1 			  //计数器信号量                初始值：1
 #define W 2 				  //为了写进程优先设置的信号量   初始值：1
@@ -68,6 +68,11 @@ int client_modify(User user);
 //处理用户修改密码请求
 int load_msg_history();
 //读取历史聊天记录，储存到全局共享内存区中。若第一次开启服务器，无历史聊天记录文件，则不做处理
+int add_friend(char A[],char B[]);
+//更新好友关系矩阵
+
+
+
 
 
 
@@ -240,7 +245,10 @@ int client_register(User user){
     int fd;
     int usernum;
     User userinfo[MAXUSER];
+
     int i;
+    int j;
+    int z;
     Packet packet;
 
     fd=open("userinfo.dat",O_RDWR|O_CREAT,0660);	//O_RDWR 读写打开 O_creat 若文件不存在则创建
@@ -252,18 +260,35 @@ int client_register(User user){
     P(FILESEM);
 
     i=read(fd,&usernum,sizeof(int));                    //文件开头是用户数量，接下来是若干个用户的帐号密码信息
+    z = read(fd,&j,sizeof(int));
     if(i == 0){                                         //如果读取失败，则表示该文件第一次打开，没有信息
         usernum=1;
         write(fd,&usernum,sizeof(int));                   //写入1，表示用户数量数为1
+        j=0;
+        printf(" j = %d\n",j);
+        write(fd,&j,sizeof(int));
 
-        user.user_id = usernum;	//写入绝对的id号码
-
+        user.user_id = usernum; //写入绝对的id号码
 
         write(fd,&user,sizeof(User));                     //将用户结构体直接写入文件
+
+        //初始化好友关系矩阵，加一个人初始化一行一列
+        int fd1;
+        //int temp1;
+        int rel[MAXUSER+1][MAXUSER+1];            //好友关系矩阵
+        memset(rel,0,sizeof(rel));
+
+        fd1 = open("friend.dat",O_RDWR|O_CREAT,0660);
+        //temp1 = read(fd1,&rel,sizeof(rel));
+       
+        write(fd1,&rel,sizeof(rel));
+        printf("好友矩阵初始化\n");
+
         if(build_packet(&packet,enum_regist,user) == -1){
             printf("fail to build the packet!\n");
             return -1;
         }
+
         write(client_socket,&packet,sizeof(Packet));      //给客户端发送包回应，表示注册成功
         printf("Client\"%s\" regists succeed with the account \"%s\".\n",client_ip,user.account);
     }else{
@@ -289,7 +314,9 @@ int client_register(User user){
         userinfo[i].user_id = usernum;
 
         lseek(fd,0,SEEK_SET);
-        write(fd,&usernum,sizeof(int));                   //将用户数组和长度写入文件
+        write(fd,&usernum,sizeof(int));
+        read(fd,&j,sizeof(int));    
+                           //将用户数组和长度写入文件
         write(fd,userinfo,sizeof(User)*MAXUSER);
 
         if(build_packet(&packet,enum_regist,user) == -1){
@@ -307,7 +334,7 @@ int client_modify(User user){
     int fd;
     int usernum;
     User userinfo[MAXUSER];
-    int i;
+    int i, j,z;
     Packet packet;
 
     fd=open("userinfo.dat",O_RDWR|O_CREAT,0660);
@@ -319,6 +346,7 @@ int client_modify(User user){
     P(FILESEM);
 
     i=read(fd,&usernum,sizeof(int));
+    z = read(fd,&j,sizeof(int));
     if(i == 0){                                         //文件第一次打开，没有用户注册，无法修改密码
         strcpy(user.account,"");
         if(build_packet(&packet,enum_modify,user) == -1){
@@ -330,7 +358,8 @@ int client_modify(User user){
     }else{
         read(fd,userinfo,MAXUSER*sizeof(User));
         for(i=0;i<usernum;i++){
-            if(!strcmp(userinfo[i].account,user.account) && !strcmp(userinfo[i].password,user.password)){
+            if(!strcmp(userinfo[i].account,user.account) && !strcmp(userinfo[i].password,user.password))
+            {
                 if(build_packet(&packet,enum_modify,user) == -1){
                     printf("fail to build the packet!\n");
                     return -1;
@@ -341,7 +370,9 @@ int client_modify(User user){
 
                 lseek(fd,0,SEEK_SET);
                 write(fd,&usernum,sizeof(int));
+                write(fd,&j,sizeof(int));
                 write(fd,userinfo,sizeof(User)*MAXUSER);
+
 
                 if(build_packet(&packet,enum_modify,user) == -1){
                     printf("315 fail to build the packet!\n");
@@ -370,7 +401,7 @@ int client_login(User user){
     int fd;
     int usernum;
     User userinfo[MAXUSER];
-    int i;
+    int i, j, z;
     Packet packet;
 
     fd=open("userinfo.dat",O_RDWR|O_CREAT,0660);
@@ -382,6 +413,7 @@ int client_login(User user){
     P(FILESEM);
 
     i=read(fd,&usernum,sizeof(int));
+    z = read(fd,&j,sizeof(int));
     //printf("usernum = %d\n",usernum);
     if(i == 0){                                         //文件第一次打开，没有用户注册，无法登录
         strcpy(user.account,"");
@@ -405,7 +437,13 @@ int client_login(User user){
                 write(client_socket,&packet,sizeof(Packet));  //发送包给客户端，表示登录成功
                 printf("Client\"%s\" logins succeed with the account \"%s\".\n",client_ip,user.account);
                 ++online_num;
-                printf("当前在线人数： %d\n",online_num);
+
+                lseek(fd,0,SEEK_SET);                       //文件指针回到文件头
+                j += 1;
+                printf("登入 当前在线人数： %d\n",j);
+                z = read(fd,&usernum,sizeof(int));
+                z = write(fd,&j,sizeof(int));
+                
                 close(fd);
                 V(FILESEM);
                 return 0;
@@ -439,6 +477,12 @@ void do_server(){
     signal(SIGINT,SIG_DFL);	//设置子进程Ctrl+C为系统默认处理
     read(client_socket,&packet,sizeof(Packet));	//读包
     parse_packet(packet,&kind,&data);
+
+    int fd;
+    int usernum;
+    User userinfo[MAXUSER];
+    int i;
+
     printf("kind = %d\n",kind);
     switch(kind)
     {
@@ -457,6 +501,7 @@ void do_server(){
             printf("the type of the packet reveived is error!\n");
             return;
     }
+    k:;
     read(client_socket,&packet,sizeof(Packet));	//读包
     parse_packet(packet,&kind,&data);
     printf("kind = %d\n",kind);
@@ -471,20 +516,71 @@ void do_server(){
             //
         case enum_friend:
             printf("friend!\n");
-            printf("%s:%s\n",data.message.id_to,data.message.id_from);
-            return;
+            printf("%s:%s\n",data.message.id_from,data.message.id_to);
+
+            fd=open("userinfo.dat",O_RDWR,0660);
+            if(fd == -1){
+                printf("file \"userinfo.dat\" opened failed!\n");
+                return -1;
+            }
+            int flag=0;
+            P(FILESEM);
+            i=read(fd,&usernum,sizeof(int));
+            int jj;
+            read(fd,&jj,sizeof(int));
+            read(fd,userinfo,MAXUSER*sizeof(User));
+            for(i=0;i<usernum;i++){
+                if(!strcmp(userinfo[i].account,data.message.id_to))//找到了
+                {
+                    printf("have found!\n");
+                    flag=1;
+                    flag = add_friend(data.message.id_from, data.message.id_to);
+                    strcpy(data.message.str,"0");
+                    close(fd);
+                    V(FILESEM);
+                    break;
+                }
+            }
+            if(flag == 0)
+            {
+                printf("not found...\n");
+                strcpy(data.message.str,"1");
+                close(fd);
+                V(FILESEM);
+            }
+            else if(flag == 2)
+            {
+                printf("已经添加好友了！\n");
+                strcpy(data.message.str,"2");
+            }
+
+            if(build_packet(&packet,enum_friend,data) == -1){
+                printf("fail to build the packet!\n");
+            }
+            write(client_socket,&packet,sizeof(Packet));  //给客户端发送包回应
+            printf("search done!\n");
+            goto k;
             //
         case enum_logout:
             printf("Client\"%s\" signs out!\n",client_ip);
-            if(online_num>0)
+            int fd;
+            int usernum;
+            int i,j,z;
+
+            fd=open("userinfo.dat",O_RDWR|O_CREAT,0660);
+            if(fd == -1)
             {
-                online_num--;
-                printf("当前在线人数： %d\n",online_num);
+                printf("file \"userinfo.dat\" opened failed!\n");
+                return -1;
             }
-            else
-            {
-                printf("当前在线人数： 0\n");
-            }
+            i = read(fd,&usernum,sizeof(int));
+            z = read(fd,&j,sizeof(int));
+            j -= 1;
+            lseek(fd,0,SEEK_SET);                       //文件指针回到文件头
+            //j + =1;
+            printf("登出 当前在线人数： %d\n",j);
+            z = read(fd,&usernum,sizeof(int));
+            z = write(fd,&j,sizeof(int));
             return;
         default:
             printf("the type of the packet reveived is error!\n");
@@ -493,8 +589,88 @@ void do_server(){
 }
 
 
+int add_friend(char A[], char B[])
+{
+    //查找id号码
+    int fd;
+    User userinfo[MAXUSER];
+    int a,usernum,j;
+    fd=open("userinfo.dat",O_RDONLY,0770);
+    if(fd == -1){
+        printf("file \"userinfo.dat\" opened failed!\n");
+        return -1;
+    }
+    int id_a, id_b, i;
+    read(fd,&usernum,sizeof(int));
+    //read(fd,&j,sizeof(int))
+    read(fd,&a,sizeof(int));
+    printf("add_friend 里面的 usernum: %d\n",usernum);
+    printf("A: %s   B:%s\n",A,B);
+    read(fd,userinfo,MAXUSER*sizeof(User));
+    for(i=0;i<usernum;++i)
+    {
+        if(!strcmp(A, userinfo[i].account))
+        {
+            printf("A的id: %d\n",i+1);
+            id_a = i+1;
+            break;
+        }
+        //printf("%s\n",userinfo[i].account);
+        //printf("%s\n\n",userinfo[i].password);
+    }   //查找A
+    for(i=0;i<usernum;++i)
+    {
+        if(!strcmp(B, userinfo[i].account))
+        {
+            printf("B的id: %d\n",i + 1);
+            id_b = i + 1;
+            break;
+        }
+        //printf("%s\n",userinfo[i].account);
+        //printf("%s\n\n",userinfo[i].password);
+    }   //查找B
 
-
+    //修改关系矩阵
+    int fd1;
+    int temp1;
+    int rel[MAXUSER+1][MAXUSER+1];            //好友关系矩阵
+    fd1 = open("friend.dat",O_RDWR|O_CREAT,0660);
+    temp1 = read(fd1,&rel,sizeof(rel));
+    printf("---------------------------\n");
+    for(int zzz=0;zzz<MAXUSER+1;++zzz)
+    {
+        for(int xxx=0;xxx<MAXUSER+1;++xxx)
+        {
+            printf("%d ",rel[zzz][xxx]);
+        }
+        printf("\n");
+    }
+    printf("---------------------------\n\n");
+    if(rel[id_a][id_b] + rel[id_b][id_a]<2)
+    {
+        rel[id_a][id_b]=1;rel[id_b][id_a] = 1;
+        ++rel[id_a][0];++rel[0][id_a];
+        ++rel[id_b][0];++rel[0][id_b];
+        printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+        for(int zzz=0;zzz<MAXUSER+1;++zzz)
+        {
+            for(int xxx=0;xxx<MAXUSER+1;++xxx)
+            {
+                printf("%d ",rel[zzz][xxx]);
+            }
+            printf("\n");
+        }
+        printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+        lseek(fd1,0,SEEK_SET);
+        write(fd1,&rel,sizeof(rel));
+        printf("%s(id:%d)与%s(id:%d)成功添加好友,快开始聊天⑧\n",A,id_a,B,id_b);
+        return 1;
+    }
+    else
+    {
+        return 2;
+    }
+}
 
 
 
