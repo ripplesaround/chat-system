@@ -10,33 +10,36 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define MAXMSG 500			  //最大消息数
-#define MAXUSER 20 		      //用户最大数量
-#define RW 0 				  //读写进程对共享内存区的信号量 初始值：1
-#define MUTEX 1 			  //计数器信号量                初始值：1
-#define W 2 				  //为了写进程优先设置的信号量   初始值：1
-#define COUNT 3				  //读进程数量                  初始值：0
-#define FILESEM 4 			  //文件访问信号量              初始值：1
+#define MAXMSG 500            //最大消息数
+#define MAXUSER 20            //用户最大数量
+#define RW 0                  //读写进程对共享内存区的信号量 初始值：1
+#define MUTEX 1               //计数器信号量                初始值：1
+#define W 2                   //为了写进程优先设置的信号量   初始值：1
+#define COUNT 3               //读进程数量                  初始值：0
+#define FILESEM 4             //文件访问信号量              初始值：1
 
-union semun{				  //信号量处理必需的共用体
+union semun{                  //信号量处理必需的共用体
     int val;                  //这个不会用
     struct semid_ds *buf;
     unsigned short *array;
 };
 
 typedef struct _space{
-    int length;				  //消息的数量，条数
+    int length;               //消息的数量，条数
     Message message[MAXMSG];  //消息，最多MAXMSG条
-}Space;						  //共享区的全部内容
+}Space;                       //共享区的全部内容
 
-Space *space;				  //共享区内存
-int client_socket;			  //客户端套接字
+Space *space;                 //共享区内存
+int client_socket;            //客户端套接字
 int server_socket;            //服务器套接字
-char client_ip[20];			  //客户端IP的字符串表示
-int shmid;					  //共享内存区(多人聊天)标识符(ID)
-int semid;					  //信号量标识符(ID)
-int online_num = 0;			  //线上人数
-int total_num = 0;			  //总用户人数
+char client_ip[20];           //客户端IP的字符串表示
+int shmid;                    //共享内存区(多人聊天)标识符(ID)
+int semid;                    //信号量标识符(ID)
+int online_num = 0;           //线上人数
+int total_num = 0;            //总用户人数
+
+
+char fwxnb[20];     //关键变量，用于标示当前fork的用户名
 
 int init_socket(int port,int addr);
 //初始化套接字，传入端口和地址，自动生成一个套接字并关联地址，监听。返回套接字。若失败，返回-1
@@ -77,8 +80,8 @@ int add_friend(char A[],char B[]);
 
 
 int init_socket(int port,int addr){
-    struct sockaddr_in server_addr;		  //服务器地址结构
-    int server_socket;					        //服务器套接字
+    struct sockaddr_in server_addr;       //服务器地址结构
+    int server_socket;                          //服务器套接字
 
     server_socket=socket(AF_INET,SOCK_STREAM,0);
     if(server_socket == -1)return -1;
@@ -86,10 +89,12 @@ int init_socket(int port,int addr){
     server_addr.sin_port=htons(port);
     server_addr.sin_family=AF_INET;
     server_addr.sin_addr.s_addr=htonl(addr);
+    //printf("server_addr: %s\n",inet_ntoa(server_addr.sin_addr.s_addr));
+    //printf("server_addr_port: %s\n",inet_ntoa(server_addr.sin_port));
     //套接字关联地址
     if(bind(server_socket,(struct sockaddr*)&server_addr,sizeof(server_addr)) != 0)
         return -1;
-    if(listen(server_socket,5) != 0)	//设置最大监听数并监听
+    if(listen(server_socket,5) != 0)    //设置最大监听数并监听
         return -1;
     return server_socket;
 }
@@ -107,22 +112,29 @@ void read_from(){
     time_t t;
     int i;
     char tbuf[1024];
+    read_byte=read(client_socket,&packet,sizeof(Packet));
     while(1){
-        read_byte=read(client_socket,&packet,sizeof(Packet));	//读取消息
+        
+        
+        read_byte=read(client_socket,&packet,sizeof(Packet));   //读取消息
         if(read_byte == -1){
             printf("Client\"%s\" reads error!\n",client_ip);
             return;
         }else{
             parse_packet(packet,&kind,&data);
-            printf("kind = %d\n",kind);
+            printf("!!!kind = %d\n",kind);
             if(kind == enum_chat){
                 /*写内存区*/
-                P(W);				  //在无写进程时进入
-                P(RW);				//互斥访问共享内存区
+                P(W);                 //在无写进程时进入
+                P(RW);              //互斥访问共享内存区
                 //超过500条则覆盖前面的，写的位置永远是space->length%500
-                msglength=space->length%MAXMSG;	//更新内存区
+                msglength=space->length%MAXMSG; //更新内存区
                 space->message[msglength].id=space->length;
                 strcpy(space->message[msglength].str,data.message.str);
+                
+                strcpy(space->message[msglength].id_from, data.message.id_from);
+                strcpy(space->message[msglength].id_to, data.message.id_to);
+
                 time(&t);
                 ctime_r(&t,tbuf);
                 space->length++;
@@ -138,8 +150,8 @@ void read_from(){
                     fprintf(fp,"\n");
                     fclose(fp);
                 }
-                V(RW);				//释放共享内存区信号量
-                V(W);				  //可以让下个写进程进入
+                V(RW);              //释放共享内存区信号量
+                V(W);                 //可以让下个写进程进入
             }
             else if(kind == enum_quitchat)
             {
@@ -173,29 +185,34 @@ void write_to(){
     int count;
     Packet packet;
     while(1){
-        if(msglength < space->length){		    //有新消息，互斥访问共享内存
-            P(W);					                      //无写进程等待进入时
-            P(MUTEX);				                    //对计数器加锁
+        if(msglength < space->length){          //有新消息，互斥访问共享内存
+            P(W);                                         //无写进程等待进入时
+            P(MUTEX);                                   //对计数器加锁
             if((count=semctl(semid,COUNT,GETVAL)) == 0)
-                P(RW);	                          //如果count=0，即第一个读进程进入，则对共享内存加锁
+                P(RW);                            //如果count=0，即第一个读进程进入，则对共享内存加锁
             if(sem_setval(COUNT,count+1) == -1) //如果不是第一个进入，则表示已经对共享内存加锁了
                 printf("174 semaphore set value failed!\n");
-            V(MUTEX);				                    //对计数器访问完毕，释放计算器信号量
-            V(W);					                      //释放W信号量，写进程可以进了
-            for(;msglength<space->length;msglength++){	//读取新消息
-                if(build_packet(&packet,enum_chat,space->message[msglength%MAXMSG]) == -1){
-                    printf("180 fail to build the packet!\n");
-                    return;
+            V(MUTEX);                                   //对计数器访问完毕，释放计算器信号量
+            V(W);                                         //释放W信号量，写进程可以进了
+            for(;msglength<space->length;msglength++){  //读取新消息
+                printf("test: %s\n", fwxnb);
+                if(!strcmp(space->message[msglength%MAXMSG].id_to,fwxnb))
+                {
+                    if(build_packet(&packet,enum_chat,space->message[msglength%MAXMSG]) == -1){
+                        printf("180 fail to build the packet!\n");
+                        return;
+                    }
+                    printf("消息发送人： %s  消息：%s\n",space->message[msglength%MAXMSG].id_from,space->message[msglength%MAXMSG].str);
+                    write(client_socket,&packet,sizeof(Packet));
                 }
-                write(client_socket,&packet,sizeof(Packet));
             }
-            P(MUTEX);				                    //对计数器加锁
-            count=semctl(semid,COUNT,GETVAL);	  //读进程访问完毕，计数器减1
+            P(MUTEX);                                   //对计数器加锁
+            count=semctl(semid,COUNT,GETVAL);     //读进程访问完毕，计数器减1
             if(sem_setval(COUNT,count-1) == -1)
                 printf("189 semaphore set value failed!\n");
-            if(semctl(semid,COUNT,GETVAL) == 0)	//如果是最后一个读进程，则要将共享内存区的锁解开，方便写进程进入
+            if(semctl(semid,COUNT,GETVAL) == 0) //如果是最后一个读进程，则要将共享内存区的锁解开，方便写进程进入
                 V(RW);
-            V(MUTEX);				                    //计数器访问完毕，释放信号量
+            V(MUTEX);                                   //计数器访问完毕，释放信号量
         }
         sleep(1);           //每秒轮询一次
     }
@@ -212,7 +229,7 @@ void getunread(){
     int temp;
     Packet packet;
 
-    read(client_socket,lastid,10);	//客户端连接成功后发送一个ID，返回此ID以后的聊天记录
+    read(client_socket,lastid,10);  //客户端连接成功后发送一个ID，返回此ID以后的聊天记录
     for(fromid=atoi(lastid)+1,temp=fromid;fromid<space->length;fromid++)
     {
         if(build_packet(&packet,enum_chat,space->message[fromid%MAXMSG]) == -1)
@@ -251,7 +268,7 @@ int client_register(User user){
     int z;
     Packet packet;
 
-    fd=open("userinfo.dat",O_RDWR|O_CREAT,0660);	//O_RDWR 读写打开 O_creat 若文件不存在则创建
+    fd=open("userinfo.dat",O_RDWR|O_CREAT,0660);    //O_RDWR 读写打开 O_creat 若文件不存在则创建
     //0660 表示权限 0代表八进制 当前用户、group和其他用户
     if(fd == -1){
         printf("file \"userinfo.dat\" opened failed!\n");
@@ -295,7 +312,7 @@ int client_register(User user){
         read(fd,userinfo,MAXUSER*sizeof(User));
         for(i=0;i<usernum;i++){
             if(!strcmp(userinfo[i].account,user.account)){  //在用户列表中找到该用户，说明已注册
-                strcpy(user.account,"");	//用户名写空
+                strcpy(user.account,"");    //用户名写空
                 if(build_packet(&packet,enum_regist,user) == -1){
                     printf("fail to build the packet!\n");
                     return -1;
@@ -310,7 +327,7 @@ int client_register(User user){
         usernum++;                                        //跳出循环，表示可以注册该用户
         strcpy(userinfo[i].account,user.account);         //将帐号密码写入用户数组
         strcpy(userinfo[i].password,user.password);
-        user.user_id = usernum;	//写入绝对的id号码
+        user.user_id = usernum; //写入绝对的id号码
         userinfo[i].user_id = usernum;
 
         lseek(fd,0,SEEK_SET);
@@ -443,6 +460,8 @@ int client_login(User user){
                 printf("登入 当前在线人数： %d\n",j);
                 z = read(fd,&usernum,sizeof(int));
                 z = write(fd,&j,sizeof(int));
+
+                strcpy(fwxnb, user.account);    //讲用户名存入全局变量
                 
                 close(fd);
                 V(FILESEM);
@@ -470,12 +489,13 @@ int client_login(User user){
 
 
 void do_server(){
+    //int fd_new = *(int *)arg;
     pthread_t thIDr,thIDw;
     Packet packet;
     Kind kind;
     Data data;
-    signal(SIGINT,SIG_DFL);	//设置子进程Ctrl+C为系统默认处理
-    read(client_socket,&packet,sizeof(Packet));	//读包
+    signal(SIGINT,SIG_DFL); //设置子进程Ctrl+C为系统默认处理
+    read(client_socket,&packet,sizeof(Packet)); //读包
     parse_packet(packet,&kind,&data);
 
     int fd;
@@ -502,13 +522,15 @@ void do_server(){
             return;
     }
     k:;
-    read(client_socket,&packet,sizeof(Packet));	//读包
+    int lxyxb;
+    lxyxb=read(client_socket,&packet,sizeof(Packet)); //读包
     parse_packet(packet,&kind,&data);
-    printf("kind = %d\n",kind);
+    printf("kinaad = %d\n",kind);
     switch(kind)
     {
         case enum_chat:
-            getunread();		//获取未读的聊天记录
+            printf("进入chatroom\n");
+            getunread();        //获取未读的聊天记录
             pthread_create(&thIDr, NULL,(void *)read_from,NULL);
             pthread_create(&thIDw, NULL,(void *)write_to,NULL);
             pthread_join(thIDr,NULL);
@@ -516,6 +538,7 @@ void do_server(){
             //
         case enum_friend:
             printf("friend!\n");
+            printf("lxyxb=%d\n",lxyxb);
             printf("%s:%s\n",data.message.id_from,data.message.id_to);
 
             fd=open("userinfo.dat",O_RDWR,0660);
@@ -581,6 +604,8 @@ void do_server(){
             printf("登出 当前在线人数： %d\n",j);
             z = read(fd,&usernum,sizeof(int));
             z = write(fd,&j,sizeof(int));
+            //
+            //
             return;
         default:
             printf("the type of the packet reveived is error!\n");
@@ -689,7 +714,7 @@ void exitfunc(int signal)
     else
     {
         int write_byte;
-        write_byte=write(fd,space,sizeof(Space));	  //将聊天记录存入文件
+        write_byte=write(fd,space,sizeof(Space));     //将聊天记录存入文件
         if(write_byte != sizeof(Space))
             printf("the length written is incorrect!\n");
         else
@@ -706,12 +731,12 @@ int init_sem(int rw,int mutex,int w,int count,int file){
     union semun arg;
     int flag;
     arg.array=(unsigned short*)malloc(sizeof(unsigned short)*5);
-    arg.array[RW]=rw;			            //初值为1
-    arg.array[MUTEX]=mutex;		        //初值为1
-    arg.array[W]=w;				            //初值为1
-    arg.array[COUNT]=count;		        //初值为0
-    arg.array[FILESEM]=file;	        //初值为1
-    flag=semctl(semid,0,SETALL,arg);	//给5个信号量赋初值
+    arg.array[RW]=rw;                       //初值为1
+    arg.array[MUTEX]=mutex;             //初值为1
+    arg.array[W]=w;                         //初值为1
+    arg.array[COUNT]=count;             //初值为0
+    arg.array[FILESEM]=file;            //初值为1
+    flag=semctl(semid,0,SETALL,arg);    //给5个信号量赋初值
     free(arg.array);
     return flag;
 }
@@ -750,12 +775,16 @@ int load_msg_history(){
 
 int main(){
     struct in_addr client_addr;
+
+    struct sockaddr_in test1;
+    int len1;
+
     int len;
     char *addr;
-    signal(SIGINT,exitfunc);		//设置函数捕获并处理Ctrl+C按下时的信号
-    signal(SIGCHLD,waitchild);		//子进程退出后wait它防止出现僵尸进程
+    signal(SIGINT,exitfunc);        //设置函数捕获并处理Ctrl+C按下时的信号
+    signal(SIGCHLD,waitchild);      //子进程退出后wait它防止出现僵尸进程
     server_socket=init_socket(MYPORT,INADDR_ANY);
-    shmid=shmget(IPC_PRIVATE,sizeof(Space),IPC_CREAT|0660);	//创建一个共享内存区
+    shmid=shmget(IPC_PRIVATE,sizeof(Space),IPC_CREAT|0660); //创建一个共享内存区
     if(shmid == -1)
     {
         printf("shared memeoy created failed.\n");
@@ -767,18 +796,18 @@ int main(){
         printf("shared memeoy matched failed.\n");
         return -1;
     }
-    semid=semget(IPC_PRIVATE,5,IPC_CREAT|0660);		//创建一个有5个信号量的信号量集
+    semid=semget(IPC_PRIVATE,5,IPC_CREAT|0660);     //创建一个有5个信号量的信号量集
     if(semid == -1)
     {
         printf("semaphore created failed!\n");
         return -1;
     }
     if(init_sem(1,1,1,0,1) == -1)
-    {					      //将5个信号量初始化值为1 1 1 0 1
+    {                         //将5个信号量初始化值为1 1 1 0 1
         printf("semaphore initilize failed!\n");
         return -1;
     }
-    len=load_msg_history();			//读取历史聊天记录
+    len=load_msg_history();         //读取历史聊天记录
     if(len == 0)
     {
         printf("File \"histmsg.dat\" opened succeed!\n");
@@ -794,17 +823,29 @@ int main(){
     printf("Wating for connecting......\n");
     while(1)
     {
-        client_socket=accept(server_socket,NULL,NULL);	//接收连接请求
-        printf("%d\n",client_socket);
+        //
+        len1 = sizeof(test1);
+        printf("len1 = %d\n",len1);
+        //client_socket server用于client通信用的
+        client_socket = accept(server_socket,(struct sockaddr*)&test1,&len1);  //接收连接请求
+        //client_socket = accept(server_socket,NULL,NULL);
+
+        printf("after_len1 = %d\n",len1);
+        printf("test1: %s\n",inet_ntoa(test1.sin_addr));
+        printf("test1端口: %d\n",ntohs(test1.sin_port));
+        printf("client %d\n",&client_socket);
         if(client_socket != -1)
         {
-            len=sizeof(client_addr);
-            getpeername(client_socket,(struct sockaddr*)&client_addr,&len);
-            strcpy(client_ip,inet_ntoa(client_addr));
-            printf("Connect succeed!\n");
-            printf("Client ip:%s\n",client_ip);
             if(fork() == 0)    //子进程进行具体处理
-                do_server();
+            {
+                
+                len=sizeof(client_addr);
+                getpeername(client_socket,(struct sockaddr*)&client_addr,&len);
+                strcpy(client_ip,inet_ntoa(client_addr));
+                printf("Connect succeed!\n");
+                printf("Client ip:%s\n",client_ip);
+                do_server(&client_socket);
+            }
             else
             {              //父进程关闭客户端套接字，继续监听
                 close(client_socket);

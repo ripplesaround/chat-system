@@ -68,8 +68,13 @@ void on_button_clicked_search(GtkWidget* button,gpointer data)
     gchar* searchid = gtk_entry_get_text(GTK_ENTRY(entry1));
     search((char*)searchid);
 }
-void on_button_clicked_chat_together(GtkWidget* button,gpointer data)
+void on_button_clicked_chat_together(GtkWidget* button,gpointer gdata)
 {
+    Kind kind=enum_chat;
+    Data data;
+    Packet packet;
+    build_packet(&packet,kind,data);
+    write(client_socket, &packet, sizeof(Packet));
     chatting_win();
 }
 void destroy_logout()
@@ -82,9 +87,20 @@ void destroy_logout()
     write(client_socket, &packet, sizeof(Packet));
     gtk_main_quit();
 }
+void read_from()
+{
+    Kind kind;
+    Data data;
+    Packet packet;
+    read(client_socket, &packet, sizeof(Packet));
+    parse_packet(packet,&kind,&data);
+
+}
 void main_win(char *user)
 {
     //gtk_init(&argc,&argv);
+    pthread_t thIDr,thIDw;
+    pthread_create(&thIDr, NULL,(void *)read_from,NULL);
     username=user;
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     //g_signal_connect(G_OBJECT(window),"destory",G_CALLBACK(gtk_main_quit),NULL);
