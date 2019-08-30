@@ -85,17 +85,20 @@ void readtxt(GtkButton  *button, gpointer entry)
 ///处理接受到的消息
 void *strdeal(void *arg)
 {
-	Packet packet;
-	Data data;
-	Kind kind;
-	if(read(client_socket, &packet, sizeof(Packet))<0){
-		perror("fail to recv");    //把"fail to recv"输出到标准错误stderr。
-		close(client_socket);    //关闭socket端口。
-		exit(1);
+	while(1)
+	{
+		Packet packet;
+		Data data;
+		Kind kind;
+		if(read(client_socket, &packet, sizeof(Packet))<0){
+			perror("fail to recv");    //把"fail to recv"输出到标准错误stderr。
+			close(client_socket);    //关闭socket端口。
+			exit(1);
+		}
+    	// read(client_socket, &packet, sizeof(Packet));
+		parse_packet(packet,&kind,&data);
+		printf("test:%s\n",data.message.str);
 	}
-    // read(client_socket, &packet, sizeof(Packet));
-	parse_packet(packet,&kind,&data);
-	printf("test:%s\n",data.message.str);
 }
 
 void chatting_win(int argc, char *argv[]){
@@ -196,14 +199,14 @@ void chatting_win(int argc, char *argv[]){
 	gtk_widget_show_all(chatting_window);	
 	
 	int sendbytes, res;
-	// pthread_t thread;
-	// 开启线程监听收到的数据
-	// res = pthread_create(&thread, NULL, strdeal, NULL);
-	// if (res != 0)
-	// {          
-	// 	exit(res);
-	// }
-	//usleep(10);
+	pthread_t thread;
+	//开启线程监听收到的数据
+	res = pthread_create(&thread, NULL, strdeal, NULL);
+	if (res != 0)
+	{          
+		exit(res);
+	}
+	usleep(10);
 	gtk_main();
 
 }
