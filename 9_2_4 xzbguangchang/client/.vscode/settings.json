@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "glib.h": "c",
+        "gthread.h": "c",
+        "gthreadpool.h": "c"
+    }
+}
