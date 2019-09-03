@@ -1,0 +1,11 @@
+进入数据库
+    mysql -u root -p
+    use user;
+查看user内容
+    select * from user;
+清空user
+    truncate table user;
+查找id为x的用户
+    select account,password from user where id =='x';
+建表
+    create table user;
