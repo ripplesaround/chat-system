@@ -1,7 +1,3 @@
-
-
-
-
 更改步骤
 1.命令行输入mysql -u root -p
         输入密码neusoft
