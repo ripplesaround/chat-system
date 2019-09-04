@@ -2,6 +2,7 @@
 1.命令行输入mysql -u root -p
         输入密码neusoft
         create database user;
+        use user;
         create table user(account VARCHAR(20),password VARCHAR(20),user_id CHAR(20),user_ip VARCHAR(20));
 2.把db_try.h移动到server文件夹
 3.修改server.c

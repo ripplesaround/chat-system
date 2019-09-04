@@ -34,7 +34,7 @@ void self_connect()
 
 void show_storage();
 
-void insert_into_account(User user)
+int insert_into_account(User user)
 {
     //初始化
     printf("开始数据库操作\n");
@@ -42,6 +42,41 @@ void insert_into_account(User user)
     printf("初始化完成\n");
 	self_connect();
     printf("连接数据库完成\n");
+
+    //初始数据库size存储，为0执行原操作
+    char get_num[30]="select  * from user;";
+    int temp=mysql_real_query(conn_prt,get_num,strlen(get_num));
+    res = mysql_store_result(conn_prt);
+    int num_now = mysql_num_rows(res); 
+    user.user_id = num_now;
+
+    printf("我怎么还在debug\n");
+    
+    //校验是否有重复
+    char select_account[20]="select * from user;";
+    temp=mysql_real_query(conn_prt,select_account,strlen(select_account));
+    printf("我怎么还在debug2\n");
+    res = mysql_store_result(conn_prt);
+    printf("我怎么还在debug3\n");
+    if(num_now)
+    {
+        while(row = mysql_fetch_row(res))
+        {
+            printf("我怎么还在debug4\n");
+            // for(int t = 0;t<=mysql_num_fields(res);t++)
+            // {
+                char comp[30];
+                strcpy(comp,row[0]);
+                printf("%s\n", comp);
+                printf("我怎么还在debug5\n");
+                if(!strcmp(comp,user.account))
+                {
+                    printf("账号已注册！\n");
+                    return -1;
+                }
+            // }
+        }
+    }
 
     char account1[20];
     strcpy(account1,user.account);
@@ -69,31 +104,28 @@ void insert_into_account(User user)
     strcat(dbcommand,user_ip1);
     strcat(dbcommand,insert_tail);
     printf("mysqlcommand:%s\n",dbcommand);
-    int t = mysql_real_query(conn_prt,dbcommand,strlen(dbcommand));
+    int tt = mysql_real_query(conn_prt,dbcommand,strlen(dbcommand));
     printf("--5--\n");
-    if(t) printf("连接数据库失败！\n");
+    if(tt) printf("连接数据库失败！\n");
 
     //打印
     char show_accounts[30]="select * from user;";
-    int tt = mysql_real_query(conn_prt,show_accounts,strlen(show_accounts));
+    tt = mysql_real_query(conn_prt,show_accounts,strlen(show_accounts));
     res=mysql_store_result(conn_prt);
-    //row = mysql_fetch_row(res);
-    printf("从MySQL数据库导出当前注册的所有用户信息：\n");
+    printf("从MySQL中导出的当前注册所有用户信息：\n");
+    printf("用户名  哈希密码  用户id  用户ip\n");
 
     while(row = mysql_fetch_row(res))
     {
-        for(t = 0;t<mysql_num_fields(res);t++)
+        for(int t = 0;t<=mysql_num_fields(res);t++)
         {
             printf("%s\t",row[t]);
         }
         printf("\n");
     }
 
-    // for (int i = 0; i < user.user_id; ++i)
-    // {
-    //     printf("%s\n",row[i]);
-    // }
-    return;
+    printf("----------------size:  %d----------------\n",num_now);
+    return num_now;
 }
 
 

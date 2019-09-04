@@ -947,11 +947,18 @@ void getunread()
 int client_register(User user)
 {
     int fd;
-    int usernum;
     User userinfo[MAXUSER];
     int i;
     int j,z;
+    int usernum=1;
     Packet packet;
+    user.user_id=usernum;
+    // strcpy(user.user_ip,client_ip);
+    
+    // 试插入
+    int ins_res=insert_into_account(user);
+
+    // 文件相关操作
     fd=open("userinfo.dat",O_RDWR|O_CREAT,0660);     /*O_RDWR 读写打开 O_creat 若文件不存在则创建, 0660 表示权限 0代表八进制 当前用户、group和其他用户*/
     if(fd == -1)
     {
@@ -961,16 +968,17 @@ int client_register(User user)
     P(FILESEM);
     i=read(fd,&usernum,sizeof(int));                                /*文件开头是用户数量，接下来是若干个用户的帐号密码信息*/
     z = read(fd,&j,sizeof(int));
-    if(i == 0)
-    {                                                               /*如果读取失败，则表示该文件第一次打开，没有信息*/
+
+    // 插入数据库成功
+    if(ins_res==0)
+    {
+        //附带文件操作
         usernum=1;
         write(fd,&usernum,sizeof(int));                             /*写入1，表示用户数量数为1*/
         j=0;
         printf(" j = %d\n",j);
         write(fd,&j,sizeof(int));
-        user.user_id = usernum;                                     /*写入绝对的id号码*/
-        insert_into_account(user);                                  /*将用户写入数据库*/
-        write(fd,&user,sizeof(User));                               /*将用户结构体直接写入文件*/
+        write(fd,&user,sizeof(User)); 
         int fd1;                                                    /*初始化好友关系矩阵，加一个人初始化一行一列*/
         int rel[MAXUSER+1][MAXUSER+1];                              /*好友关系矩阵*/
         memset(rel,0,sizeof(rel));
@@ -985,43 +993,45 @@ int client_register(User user)
         write(client_socket,&packet,sizeof(Packet));                /*给客户端发送包回应，表示注册成功*/
         printf("Client\"%s\" regists succeed with the account \"%s\".\n",client_ip,user.account);
     }
-    else
+    //插入失败
+    else if(ins_res==-1)
     {
         read(fd,userinfo,MAXUSER*sizeof(User));
-        for(i=0;i<usernum;i++)
+        strcpy(user.account,"");  
+        if(build_packet(&packet,enum_regist,user) == -1)
         {
-            if(!strcmp(userinfo[i].account,user.account))           /*在用户列表中找到该用户，说明已注册*/
-            {
-                strcpy(user.account,"");                      /*用户名写空*/
-                if(build_packet(&packet,enum_regist,user) == -1)
-                {
-                    printf("fail to build the packet!\n");
-                    return -1;
-                }
-                write(client_socket,&packet,sizeof(Packet));        /*给客户端发送包回应，表示注册失败*/
-                printf("Client\"%s\" regists failed with the repeting account.\n",client_ip);
-                close(fd);
-                V(FILESEM);
-                return -1;
-            }
+            printf("fail to build the packet!\n");
+            return -1;
         }
-        usernum++;                                                  /*跳出循环，表示可以注册该用户*/
-        strcpy(userinfo[i].account,user.account);                   /*将帐号密码写入用户数组*/
-        strcpy(userinfo[i].password,user.password);
-        user.user_id = usernum;                                     /*写入绝对的id号码*/
-        userinfo[i].user_id = usernum;
+        write(client_socket,&packet,sizeof(Packet));        /*给客户端发送包回应，表示注册失败*/
+        printf("Client\"%s\" regists failed with the repeting account.\n",client_ip);       
+    
+        //文件操作
+        close(fd);
+        V(FILESEM);
+        return -1;
+    }
+    else
+    {
+        //文件操作
+        read(fd,userinfo,MAXUSER*sizeof(User));
+        usernum++;
+        strcpy(userinfo[usernum-1].account,user.account);                   /*将帐号密码写入用户数组*/
+        strcpy(userinfo[usernum-1].password,user.password);
+        user.user_id = usernum; 
+        userinfo[usernum-1].user_id = usernum;
         lseek(fd,0,SEEK_SET);
         write(fd,&usernum,sizeof(int));
         read(fd,&j,sizeof(int));                                    /*将用户数组和长度写入文件*/
-        insert_into_account(user);
         write(fd,userinfo,sizeof(User)*MAXUSER);
         if(build_packet(&packet,enum_regist,user) == -1)
         {
             printf("fail to build the packet!\n");
             return -1;
         }
-        write(client_socket,&packet,sizeof(Packet));
-        printf("Client\"%s\" regists succeed with the account \"%s\".\n",client_ip,user.account);
+        write(client_socket,&packet,sizeof(Packet));                /*给客户端发送包回应，表示注册成功*/
+        printf("-0-Client\"%s\" regists succeed with the account \"%s\".\n",client_ip,user.account);
+        
     }
     close(fd);
     V(FILESEM);
